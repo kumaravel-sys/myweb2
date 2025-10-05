@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VSE — Final Fix</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{--bg:#f5f7fb;--card:#fff;--text:#111;--muted:#475569;--accent:#0f1724}
+  body{font-family:system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; background:var(--bg); color:var(--text)}
+  header{background:var(--accent); color:white; padding:12px 20px; display:flex; justify-content:space-between; align-items:center}
+  .container{max-width:1100px; margin:20px auto; padding:18px; background:var(--card); border-radius:10px; box-shadow:0 8px 30px rgba(10,20,40,0.06)}
+  input,select,button{padding:10px; border-radius:6px; border:1px solid #cbd5e1; font-size:14px}
+  button{background:var(--accent); color:white; border:0; cursor:pointer}
+  .hidden{display:none}
+  .card{padding:12px; border-radius:8px; background:var(--card); box-shadow:0 6px 20px rgba(10,20,40,0.04); margin-top:12px}
+  .search-suggestions{background:var(--card); border:1px solid #e2e8f0; margin-top:6px; max-height:220px; overflow:auto; border-radius:6px}
+  .suggest-item{padding:8px; cursor:pointer; border-bottom:1px solid #f1f5f9}
+  .suggest-item:hover{background:#f1f5f9}
+  table{width:100%; border-collapse:collapse; margin-top:12px}
+  th,td{text-align:left; padding:8px; border-bottom:1px solid #f1f5f9}
+  .small{font-size:13px; color:var(--muted)}
+  footer{text-align:center; padding:14px; color:var(--muted); font-size:13px}
+  .danger{color:#dc2626}
+  .dark{--bg:#0b1220; --card:#0f1724; --text:#e6eef8; --muted:#9fb0c7; --accent:#0b61a4}
+</style>
+</head>
+<body>
+<header>
+  <div><strong>VSE Stock Trainer — Final Fix</strong></div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button id="theme-btn">Toggle Theme</button>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- COMMON PASSWORD -->
+  <section id="view-common">
+    <h2>Enter Common Password</h2>
+    <input id="common-pass" type="password" placeholder="Common password" style="width:100%; margin-bottom:8px" />
+    <div style="display:flex; gap:8px;">
+      <button id="common-submit">Continue</button>
+    </div>
+    <p id="common-error" class="small danger"></p>
+  </section>
+
+  <!-- LOGIN -->
+  <section id="view-login" class="hidden">
+    <h2>Login / Register</h2>
+    <input id="login-email" type="email" placeholder="Email" style="width:100%; margin-bottom:8px" />
+    <input id="login-password" type="password" placeholder="Password" style="width:100%; margin-bottom:8px" />
+    <div style="display:flex;gap:8px">
+      <button id="btn-login">Login or Create</button>
+    </div>
+    <p id="login-error" class="small danger"></p>
+    <p class="small">No guest accounts — every user must register so admin can track accounts.</p>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="view-dashboard" class="hidden">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2>Dashboard</h2>
+      <div class="small">User: <b id="user-email">-</b></div>
+    </div>
+
+    <div style="display:flex; gap:16px; align-items:flex-start; margin-top:12px;">
+      <div style="flex:1">
+        <div class="card">
+          <div style="display:flex; gap:8px; align-items:center">
+            <input id="search" placeholder="Start typing (e.g. ta) to see suggestions" style="flex:1"/>
+            <select id="interval">
+              <option value="1">1m</option><option value="5">5m</option><option value="15" selected>15m</option><option value="60">1h</option><option value="D">1D</option><option value="W">1W</option><option value="M">1M</option>
+            </select>
+          </div>
+          <div id="suggestions" class="search-suggestions hidden"></div>
+        </div>
+
+        <div id="stock-card" class="card hidden">
+          <h3 id="stock-heading">Selected</h3>
+          <div id="chart" style="height:420px"></div>
+          <div style="display:flex; gap:10px; margin-top:8px; align-items:center;">
+            <div class="small">Price: <b id="live-price">-</b></div>
+            <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+              <input id="qty" type="number" min="1" value="1" style="width:110px"/>
+              <button id="buy">Buy</button>
+              <button id="sell" style="background:#dc2626">Sell</button>
+            </div>
+          </div>
+          <p id="stock-error" class="small danger"></p>
+        </div>
+
+        <div class="card">
+          <h3>Portfolio</h3>
+          <div class="small">Balance: <b id="balance">₹ -</b></div>
+          <table id="portfolio-table">
+            <thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>Curr</th><th>Value</th><th>P/L</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="width:420px">
+        <div id="admin-card" class="card hidden">
+          <h3>Admin</h3>
+          <button id="open-admin">Open Admin Panel</button>
+        </div>
+
+        <div class="card">
+          <h4>Actions</h4>
+          <div style="display:flex; gap:8px; flex-direction:column">
+            <button id="refresh">Refresh Prices</button>
+            <button id="logout" style="background:#ef4444">Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ADMIN -->
+  <section id="view-admin" class="hidden">
+    <h2>Admin Panel</h2>
+    <div style="margin-bottom:12px"><button id="admin-back">Back</button></div>
+    <div class="card">
+      <h3>Leaderboard</h3>
+      <table id="admin-table"><thead><tr><th>#</th><th>Email</th><th>Balance</th><th>Portfolio Value</th><th>Total</th><th>Profit</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3>Transactions</h3>
+      <table id="tx-table"><thead><tr><th>User</th><th>Symbol</th><th>Qty</th><th>Price</th><th>Type</th><th>Date</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+</main>
+
+<footer>Virtual money only. Twelve Data + TradingView.</footer>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+
+<script type="module">
+/* FINAL fixed single-file app
+   - Uses your provided Firebase config (inserted below)
+   - Twelve Data API key used for search & price
+   - Robust autocomplete on typing, TradingView chart, buy/sell, portfolio, admin 
+*/
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+/* ----------- CONFIG - PUT EXACTLY WHAT YOU SENT ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyBkejMB4xTUPoAG4_QjQefDNEx28DvRbLI",
+  authDomain: "myweb-ffb0a.firebaseapp.com",
+  projectId: "myweb-ffb0a",
+  storageBucket: "myweb-ffb0a.firebasestorage.app",
+  messagingSenderId: "22023089875",
+  appId: "1:22023089875:web:77a43df8e784b103546e26"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ---------- SETTINGS ---------- */
+const TWELVE_API = "c933f15065e54a7b9d8908b084d72de1"; // your key
+const COMMON_PASSWORD = "vse2k25";
+const ADMIN_EMAIL = "admin6@vse.com";
+const START_BALANCE = 100000;
+
+/* ---------- ELEMENTS ---------- */
+const viewCommon = document.getElementById('view-common');
+const commonInput = document.getElementById('common-pass');
+const commonSubmit = document.getElementById('common-submit');
+const commonError = document.getElementById('common-error');
+
+const viewLogin = document.getElementById('view-login');
+const loginEmail = document.getElementById('login-email');
+const loginPassword = document.getElementById('login-password');
+const btnLogin = document.getElementById('btn-login');
+const loginError = document.getElementById('login-error');
+
+const viewDashboard = document.getElementById('view-dashboard');
+const userEmailEl = document.getElementById('user-email');
+const balanceEl = document.getElementById('balance');
+const portfolioTbody = document.querySelector('#portfolio-table tbody');
+
+const searchInput = document.getElementById('search');
+const suggestions = document.getElementById('suggestions');
+const intervalSelect = document.getElementById('interval');
+
+const chartWrap = document.getElementById('chart');
+const stockHeading = document.getElementById('stock-heading');
+const livePriceEl = document.getElementById('live-price');
+const stockError = document.getElementById('stock-error');
+
+const qtyInput = document.getElementById('qty');
+const buyBtn = document.getElementById('buy');
+const sellBtn = document.getElementById('sell');
+
+const refreshBtn = document.getElementById('refresh');
+const logoutBtn = document.getElementById('logout');
+
+const adminCard = document.getElementById('admin-card');
+const openAdminBtn = document.getElementById('open-admin');
+const viewAdmin = document.getElementById('view-admin');
+const adminBackBtn = document.getElementById('admin-back');
+const adminTableBody = document.querySelector('#admin-table tbody');
+const txTableBody = document.querySelector('#tx-table tbody');
+
+const themeBtn = document.getElementById('theme-btn');
+
+let currentUser = null;
+let portfolio = {}; // symbol -> { qty, avgPrice, currPrice }
+let balance = START_BALANCE;
+let selectedSymbol = null;
+
+/* ---------- UI helpers ---------- */
+const show = el => el.classList.remove('hidden');
+const hide = el => el.classList.add('hidden');
+const money = n => '₹' + Number(n||0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+/* ---------- Theme ---------- */
+themeBtn.addEventListener('click', ()=> document.body.classList.toggle('dark'));
+
+/* ---------- Common password step ---------- */
+commonSubmit.addEventListener('click', ()=>{
+  if((commonInput.value||'').trim() === COMMON_PASSWORD){
+    hide(viewCommon); show(viewLogin);
+    commonError.textContent = '';
+  } else {
+    commonError.textContent = 'Wrong common password';
+  }
+});
+
+/* ---------- Auth: login or create ---------- */
+btnLogin.addEventListener('click', async ()=>{
+  loginError.textContent = '';
+  const email = (loginEmail.value||'').trim();
+  const pwd = (loginPassword.value||'').trim();
+  if(!email || !pwd){ loginError.textContent = 'Enter email & password'; return; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pwd);
+  } catch (err) {
+    // create account if not exists
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, pwd);
+      const uid = cred.user.uid;
+      await setDoc(doc(db,'users', uid), { email, createdAt: Date.now() });
+      await setDoc(doc(db,'portfolios', uid), { balance: START_BALANCE, stocks: {}, transactions: [] });
+    } catch (e2) {
+      loginError.textContent = e2.message || 'Auth error';
+      console.error('Create user error', e2);
+    }
+  }
+});
+
+/* ---------- Auth state ---------- */
+onAuthStateChanged(auth, async (user)=>{
+  if(user){
+    currentUser = user;
+    userEmailEl.textContent = user.email;
+    hide(viewLogin); hide(viewCommon); show(viewDashboard);
+    if(user.email === ADMIN_EMAIL) show(adminCard);
+    await ensureUserDocs(user.uid, user.email);
+    await loadPortfolio();
+  } else {
+    currentUser = null;
+    hide(viewDashboard); hide(viewAdmin);
+    show(viewLogin);
+  }
+});
+
+/* ensure users/{uid} and portfolios/{uid} exist */
+async function ensureUserDocs(uid, email){
+  try {
+    const uRef = doc(db, 'users', uid);
+    const uSnap = await getDoc(uRef);
+    if(!uSnap.exists()) await setDoc(uRef, { email, createdAt: Date.now() });
+    const pRef = doc(db, 'portfolios', uid);
+    const pSnap = await getDoc(pRef);
+    if(!pSnap.exists()) await setDoc(pRef, { balance: START_BALANCE, stocks: {}, transactions: [] });
+  } catch(err){
+    console.error('ensureUserDocs error', err);
+  }
+}
+
+/* ---------- Load portfolio ---------- */
+async function loadPortfolio(){
+  if(!currentUser) return;
+  try {
+    const pRef = doc(db, 'portfolios', currentUser.uid);
+    const pSnap = await getDoc(pRef);
+    if(pSnap.exists()){
+      const data = pSnap.data();
+      balance = data.balance != null ? data.balance : START_BALANCE;
+      portfolio = data.stocks || {};
+    } else {
+      balance = START_BALANCE; portfolio = {};
+      await setDoc(doc(db,'portfolios', currentUser.uid), { balance, stocks: {}, transactions: [] });
+    }
+    updatePortfolioUI();
+  } catch(e){
+    console.error('loadPortfolio error', e);
+  }
+}
+
+/* ---------- Persist portfolio (and optionally add transaction) ---------- */
+async function persistPortfolio(tx){
+  if(!currentUser) return;
+  const pRef = doc(db, 'portfolios', currentUser.uid);
+  try {
+    const pSnap = await getDoc(pRef);
+    const existing = pSnap.exists() ? (pSnap.data().transactions || []) : [];
+    if(tx) existing.push(tx);
+    await updateDoc(pRef, { balance, stocks: portfolio, transactions: existing });
+  } catch(e){
+    console.error('persistPortfolio error', e);
+  }
+}
+
+/* ---------- Autocomplete (typing) ---------- */
+let debounceTimer = null;
+searchInput.addEventListener('input', ()=>{
+  const q = (searchInput.value||'').trim();
+  if(debounceTimer) clearTimeout(debounceTimer);
+  if(!q){ hide(suggestions); return; }
+  debounceTimer = setTimeout(()=> doAutocomplete(q), 180);
+});
+
+async function doAutocomplete(q){
+  try {
+    const res = await fetch(`https://api.twelvedata.com/symbol_search?symbol=${encodeURIComponent(q)}&apikey=${TWELVE_API}`);
+    const js = await res.json();
+    const items = js.data || [];
+    if(items.length === 0){ suggestions.innerHTML = `<div class="small">No matches</div>`; show(suggestions); return; }
+    const qlow = q.toLowerCase();
+    const filtered = items.filter(it => (it.symbol||'').toLowerCase().startsWith(qlow) || (it.name||'').toLowerCase().startsWith(qlow));
+    const list = (filtered.length ? filtered : items).slice(0, 12)
+      .map(it => `<div class="suggest-item" data-symbol="${it.symbol}" data-name="${encodeURIComponent(it.name||'')}">${(it.name||it.symbol)} — ${it.symbol}</div>`).join('');
+    suggestions.innerHTML = list;
+    show(suggestions);
+  } catch(e){
+    suggestions.innerHTML = `<div class="small danger">Search failed</div>`; show(suggestions); console.error(e);
+  }
+}
+
+/* ---------- Click suggestion ---------- */
+suggestions.addEventListener('click', async (ev)=>{
+  const t = ev.target.closest('.suggest-item');
+  if(!t) return;
+  const sym = t.getAttribute('data-symbol');
+  const name = decodeURIComponent(t.getAttribute('data-name')||'');
+  await selectSymbol(sym, name);
+  hide(suggestions);
+});
+
+/* ---------- Select symbol: fetch price + show TradingView ---------- */
+async function selectSymbol(sym, name){
+  selectedSymbol = sym;
+  stockHeading.textContent = `${name || sym} (${sym})`;
+  stockError.textContent = '';
+  // fetch price
+  const p = await fetchPriceWithFallback(sym);
+  livePriceEl.textContent = p ? money(p) : '-';
+  // load tradingview
+  const tvSym = mapToTV(sym);
+  loadTradingView(tvSym, intervalSelect.value || '15');
+  show(document.getElementById('stock-card'));
+}
+
+/* fetch price, try variations */
+async function fetchPriceWithFallback(sym){
+  try {
+    // try as-is
+    let r = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(sym)}&apikey=${TWELVE_API}`);
+    let js = await r.json();
+    if(js && js.price) return parseFloat(js.price);
+    // try common suffixes
+    if(!sym.includes('.')){
+      r = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(sym + '.NS')}&apikey=${TWELVE_API}`);
+      js = await r.json(); if(js && js.price) return parseFloat(js.price);
+      r = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(sym + '.BO')}&apikey=${TWELVE_API}`);
+      js = await r.json(); if(js && js.price) return parseFloat(js.price);
+    }
+    return null;
+  } catch(e){ console.error('fetchPrice error', e); return null; }
+}
+
+/* map TwelveData symbol to TradingView symbol */
+function mapToTV(sym){
+  if(!sym) return sym;
+  const s = sym.toUpperCase();
+  if(s.includes('NSE') || s.endsWith('.NS') || s.endsWith('.NSE')) {
+    const base = s.replace(/\.NS$|\.NSE$|:NSE:/ig,'').replace(/^NSE:/,'').replace(/\s/g,'');
+    return 'NSE:' + base;
+  }
+  if(s.includes('BSE') || s.endsWith('.BO') || s.endsWith('.BSE')) {
+    const base = s.replace(/\.BO$|\.BSE$|:BSE:/ig,'').replace(/^BSE:/,'').replace(/\s/g,'');
+    return 'BSE:' + base;
+  }
+  // if already in TV format like 'NSE:RELIANCE' -> return as is
+  if(s.includes(':')) return s;
+  // default to NSE
+  return 'NSE:' + s.replace(/\s/g,'');
+}
+
+/* load TradingView widget (clear previous) */
+function loadTradingView(symbol, interval){
+  chartWrap.innerHTML = '';
+  try {
+    new TradingView.widget({
+      width: '100%',
+      height: 420,
+      symbol,
+      interval: interval.toString(),
+      timezone: 'Asia/Kolkata',
+      theme: document.body.classList.contains('dark') ? 'dark' : 'light',
+      style: '1',
+      locale: 'en',
+      container_id: 'chart',
+      allow_symbol_change: true,
+      hide_side_toolbar: false
+    });
+  } catch(e){
+    chartWrap.innerHTML = '<div class="small danger">Chart not available</div>';
+    console.error('TradingView error', e);
+  }
+}
+
+/* ---------- Buy / Sell ---------- */
+buyBtn.addEventListener('click', async ()=>{
+  if(!currentUser) { alert('Login first'); return; }
+  if(!selectedSymbol) { alert('Select a stock'); return; }
+  const q = parseInt(qtyInput.value) || 0;
+  if(q <= 0){ alert('Enter valid qty'); return; }
+  const price = await fetchPriceWithFallback(selectedSymbol);
+  if(!price){ alert('Price unavailable'); return; }
+  const cost = price * q;
+  if(cost > balance){ alert('Insufficient funds'); return; }
+  balance -= cost;
+  const s = portfolio[selectedSymbol] || { qty:0, avgPrice:0, currPrice: price };
+  s.avgPrice = s.qty === 0 ? price : ((s.avgPrice * s.qty) + (price * q)) / (s.qty + q);
+  s.qty += q; s.currPrice = price;
+  portfolio[selectedSymbol] = s;
+  const tx = { symbol: selectedSymbol, quantity: q, price, type: 'BUY', date: new Date().toISOString() };
+  await persistPortfolio(tx);
+  updatePortfolioUI();
+  alert(`Bought ${q} × ${selectedSymbol} @ ${money(price)} = ${money(cost)}`);
+});
+
+sellBtn.addEventListener('click', async ()=>{
+  if(!currentUser) { alert('Login first'); return; }
+  if(!selectedSymbol) { alert('Select a stock'); return; }
+  const q = parseInt(qtyInput.value) || 0;
+  if(q <= 0){ alert('Enter valid qty'); return; }
+  const s = portfolio[selectedSymbol];
+  if(!s || s.qty < q){ alert('Not enough qty'); return; }
+  const price = await fetchPriceWithFallback(selectedSymbol);
+  if(!price) { alert('Price unavailable'); return; }
+  const value = price * q;
+  s.qty -= q; s.currPrice = price;
+  if(s.qty === 0) delete portfolio[selectedSymbol];
+  balance += value;
+  const tx = { symbol: selectedSymbol, quantity: q, price, type: 'SELL', date: new Date().toISOString() };
+  await persistPortfolio(tx);
+  updatePortfolioUI();
+  alert(`Sold ${q} × ${selectedSymbol} @ ${money(price)} = ${money(value)}`);
+});
+
+/* ---------- Update portfolio UI ---------- */
+function updatePortfolioUI(){
+  balanceEl.textContent = money(balance);
+  portfolioTbody.innerHTML = '';
+  for(const sym in portfolio){
+    const s = portfolio[sym];
+    const curr = s.currPrice || 0;
+    const value = (s.qty || 0) * curr;
+    const pl = ((curr - (s.avgPrice || 0)) * (s.qty || 0));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${sym}</td><td>${s.qty}</td><td>${money(s.avgPrice)}</td><td>${curr? money(curr): '-'}</td><td>${money(value)}</td><td style="color:${pl>=0?'green':'red'}">${money(pl)}</td>`;
+    portfolioTbody.appendChild(tr);
+  }
+}
+
+/* ---------- Refresh prices for portfolio ---------- */
+refreshBtn.addEventListener('click', async ()=>{
+  await refreshPortfolioPrices();
+  updatePortfolioUI();
+  await persistPortfolio(); // persist updated currPrice
+  alert('Prices refreshed');
+});
+
+async function refreshPortfolioPrices(){
+  const syms = Object.keys(portfolio);
+  for(const sym of syms){
+    const p = await fetchPriceWithFallback(sym);
+    if(p != null) portfolio[sym].currPrice = p;
+  }
+}
+
+/* ---------- Persist portfolio with optional tx pushed ---------- */
+async function persistPortfolio(tx){
+  if(!currentUser) return;
+  try {
+    const pRef = doc(db, 'portfolios', currentUser.uid);
+    const pSnap = await getDoc(pRef);
+    const existing = pSnap.exists() ? (pSnap.data().transactions || []) : [];
+    if(tx) existing.push(tx);
+    await updateDoc(pRef, { balance, stocks: portfolio, transactions: existing });
+  } catch(e){
+    console.error('persist error', e);
+  }
+}
+
+/* ---------- Admin panel ---------- */
+openAdminBtn.addEventListener('click', async ()=>{
+  if(!currentUser || currentUser.email !== ADMIN_EMAIL){ alert('Admin only'); return; }
+  hide(viewDashboard); show(viewAdmin);
+  adminTableBody.innerHTML = ''; txTableBody.innerHTML = '';
+  try {
+    const col = collection(db, 'portfolios');
+    const snaps = await getDocs(col);
+    const usersArr = [];
+    for(const docSnap of snaps.docs){
+      const uid = docSnap.id;
+      const data = docSnap.data();
+      const stocks = data.stocks || {};
+      // compute total value; fetch missing prices sequentially
+      let totalVal = 0;
+      for(const sym in stocks){
+        let p = stocks[sym].currPrice;
+        if(!p){
+          p = await fetchPriceWithFallback(sym) || 0;
+          stocks[sym].currPrice = p;
+        }
+        totalVal += (stocks[sym].qty || 0) * (stocks[sym].currPrice || 0);
+      }
+      const bal = data.balance || 0;
+      const total = totalVal + bal;
+      const profit = total - START_BALANCE;
+      // get email from users collection
+      let email = uid;
+      try {
+        const uref = doc(db, 'users', uid);
+        const usnap = await getDoc(uref);
+        if(usnap.exists()) email = usnap.data().email || uid;
+      } catch(e){ /* ignore */ }
+      usersArr.push({ uid, email, balance: bal, totalVal, total, profit, transactions: data.transactions || [] });
+    }
+    // sort by profit desc
+    usersArr.sort((a,b)=> b.profit - a.profit);
+    // render
+    let i = 1;
+    for(const u of usersArr){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i++}</td><td>${u.email}</td><td>${money(u.balance)}</td><td>${money(u.totalVal)}</td><td>${money(u.total)}</td><td>${money(u.profit)}</td>`;
+      adminTableBody.appendChild(tr);
+      // render transactions
+      for(const t of u.transactions){
+        const tr2 = document.createElement('tr');
+        tr2.innerHTML = `<td>${u.email}</td><td>${t.symbol}</td><td>${t.quantity}</td><td>${money(t.price)}</td><td>${t.type}</td><td>${t.date}</td>`;
+        txTableBody.appendChild(tr2);
+      }
+    }
+  } catch(e){ console.error('admin error', e); alert('Failed to load admin data'); }
+});
+
+adminBackBtn.addEventListener('click', ()=>{
+  hide(viewAdmin); show(viewDashboard);
+});
+
+/* ---------- Logout ---------- */
+logoutBtn.addEventListener('click', async ()=>{
+  await signOut(auth);
+  location.reload();
+});
+
+/* ---------- Helpers ---------- */
+function hideAllViews(){ hide(viewCommon); hide(viewLogin); hide(viewDashboard); hide(viewAdmin); }
+
+/* ---------- initial state ---------- */
+hideAllViews(); show(viewCommon);
+
+</script>
+</body>
+</html>
